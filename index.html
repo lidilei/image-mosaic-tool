@@ -352,6 +352,12 @@
             display: block;
         }
 
+        .status.warning {
+            background: #d1ecf1;
+            color: #0c5460;
+            display: block;
+        }
+
         .stats {
             text-align: center;
             color: #666;
@@ -361,14 +367,34 @@
 
         .output-options {
             margin-top: 20px;
-            padding: 15px;
+            padding: 20px;
             background: #f8f9ff;
             border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+
+        .output-options h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .output-option-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
         }
 
         .output-options input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             cursor: pointer;
         }
 
@@ -379,6 +405,31 @@
             gap: 8px;
             font-weight: 500;
             color: #333;
+            flex: 1;
+        }
+
+        .folder-status {
+            margin-top: 15px;
+            padding: 12px;
+            background: #e8f5e9;
+            border-radius: 6px;
+            color: #2e7d32;
+            font-size: 14px;
+            display: none;
+        }
+
+        .folder-status.show {
+            display: block;
+        }
+
+        .folder-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -455,25 +506,42 @@
             <div class="preview-container" id="previewContainer"></div>
         </div>
 
-        <div class="action-buttons">
-            <button class="btn btn-secondary" id="selectFolderBtn" disabled>
-                📂 选择输出文件夹
-            </button>
-            <button class="btn btn-primary" id="processBtn" disabled>
-                ⚡ 批量处理并下载
-            </button>
-        </div>
+        <div class="output-options">
+            <h3>💾 输出设置</h3>
+            
+            <div class="output-option-item">
+                <input type="checkbox" id="autoSaveEnabled" checked>
+                <label for="autoSaveEnabled">
+                    <strong>自动保存到原文件夹</strong>
+                    <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
+                        处理后的图片直接保存到上传文件的文件夹，无需额外操作
+                    </div>
+                </label>
+                <button class="btn btn-secondary btn-small" id="selectFolderBtn">
+                    📂 更改文件夹
+                </button>
+            </div>
 
-        <div class="output-options" style="margin-top: 20px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
-            <div class="control-group" style="margin-bottom: 10px;">
-                <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="overwriteOriginal" style="width: auto;">
-                    覆盖原文件名（下载时保持原文件名）
+            <div class="output-option-item">
+                <input type="checkbox" id="overwriteOriginal" checked>
+                <label for="overwriteOriginal">
+                    <strong>覆盖原文件名</strong>
+                    <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
+                        保持原文件名（如 photo.png），不添加 _mosaic 后缀
+                    </div>
                 </label>
             </div>
-            <div id="folderStatus" style="color: #666; font-size: 14px; display: none;">
-                📁 输出文件夹：<span id="folderPath" style="font-weight: 600;"></span>
+
+            <div class="folder-status" id="folderStatus">
+                ✅ 输出文件夹：<strong id="folderPath"></strong>
+                <div style="margin-top: 5px; font-size: 13px;">点击"批量处理"后将直接保存到此文件夹</div>
             </div>
+        </div>
+
+        <div class="action-buttons" style="margin-top: 25px;">
+            <button class="btn btn-primary" id="processBtn" disabled>
+                ⚡ 批量处理
+            </button>
         </div>
 
         <div class="status" id="status"></div>
@@ -483,6 +551,7 @@
         let uploadedImages = [];
         let directoryHandle = null;
         let previewImageLoaded = false;
+        let sourceDirectoryHandle = null;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -493,6 +562,7 @@
         const selectFolderBtn = document.getElementById('selectFolderBtn');
         const processBtn = document.getElementById('processBtn');
         const overwriteOriginal = document.getElementById('overwriteOriginal');
+        const autoSaveEnabled = document.getElementById('autoSaveEnabled');
         const folderStatus = document.getElementById('folderStatus');
         const folderPath = document.getElementById('folderPath');
         const livePreviewSection = document.getElementById('livePreviewSection');
@@ -542,8 +612,16 @@
         });
 
         // 处理文件
-        function handleFiles(files) {
+        async function handleFiles(files) {
             const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            
+            // 尝试获取文件夹句柄（如果通过文件夹选择上传）
+            if (fileInput.webkitRelativePath) {
+                // 用户选择了整个文件夹
+                const paths = Array.from(files).map(f => fileInput.webkitRelativePath);
+                const folderPath = paths[0].split('/')[0];
+                // 提示用户这是文件夹上传
+            }
             
             Array.from(files).forEach(file => {
                 if (validTypes.includes(file.type)) {
@@ -632,15 +710,27 @@
             stats.textContent = uploadedImages.length > 0 ? `已上传 ${uploadedImages.length} 张图片` : '';
             
             const hasImages = uploadedImages.length > 0;
-            selectFolderBtn.disabled = !hasImages;
             processBtn.disabled = !hasImages;
 
             // 显示/隐藏实时预览区域
             if (hasImages) {
                 livePreviewSection.classList.add('active');
                 originalImage.src = uploadedImages[0].dataUrl;
+                
+                // 提示用户选择文件夹（如果需要）
+                if (!directoryHandle && autoSaveEnabled.checked) {
+                    showFolderHint();
+                }
             } else {
                 livePreviewSection.classList.remove('active');
+            }
+        }
+
+        // 显示文件夹提示
+        function showFolderHint() {
+            if ('showDirectoryPicker' in window) {
+                status.className = 'status warning';
+                status.innerHTML = '💡 提示：点击"批量处理"时需要选择输出文件夹，或关闭"自动保存"选项下载 ZIP 文件';
             }
         }
 
@@ -723,7 +813,10 @@
             try {
                 directoryHandle = await window.showDirectoryPicker();
                 folderPath.textContent = directoryHandle.name;
-                folderStatus.style.display = 'block';
+                folderStatus.classList.add('show');
+                folderStatus.classList.remove('error');
+                
+                autoSaveEnabled.checked = true;
                 
                 status.className = 'status success';
                 status.textContent = `✅ 已选择输出文件夹：${directoryHandle.name}`;
@@ -736,11 +829,9 @@
         });
 
         // 保存到指定文件夹
-        async function saveToDirectory(filename, base64Data) {
-            if (!directoryHandle) return false;
-
+        async function saveToDirectory(dirHandle, filename, base64Data) {
             try {
-                const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+                const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
                 const writable = await fileHandle.createWritable();
                 
                 const binaryString = atob(base64Data);
@@ -763,11 +854,42 @@
         processBtn.addEventListener('click', async () => {
             if (uploadedImages.length === 0) return;
 
+            const useAutoSave = autoSaveEnabled.checked;
+            const useOverwrite = overwriteOriginal.checked;
+
+            // 如果启用自动保存但没有选择文件夹，提示用户选择
+            if (useAutoSave && !directoryHandle) {
+                if (!('showDirectoryPicker' in window)) {
+                    status.className = 'status error';
+                    status.textContent = '❌ 您的浏览器不支持文件夹选择，请关闭"自动保存"选项使用 ZIP 下载';
+                    return;
+                }
+
+                status.className = 'status processing';
+                status.textContent = '📂 请选择输出文件夹...';
+
+                try {
+                    directoryHandle = await window.showDirectoryPicker();
+                    folderPath.textContent = directoryHandle.name;
+                    folderStatus.classList.add('show');
+                    folderStatus.classList.remove('error');
+                    status.textContent = '';
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        status.className = 'status error';
+                        status.textContent = '❌ 已取消操作，请选择文件夹或关闭"自动保存"选项';
+                        return;
+                    }
+                    status.className = 'status error';
+                    status.textContent = '❌ 选择文件夹失败：' + error.message;
+                    return;
+                }
+            }
+
             status.className = 'status processing';
             status.textContent = `⏳ 处理中... 0/${uploadedImages.length}`;
 
-            const useFolder = directoryHandle !== null;
-            const useOverwrite = overwriteOriginal.checked;
+            const useFolder = directoryHandle !== null && useAutoSave;
             const zip = useFolder ? null : await JSZip();
             const processedCount = { value: 0 };
             const savedToFolder = { value: 0 };
@@ -796,7 +918,7 @@
                         
                         // 保存到选定文件夹或 ZIP
                         if (useFolder) {
-                            saveToDirectory(filename, base64Data).then(success => {
+                            saveToDirectory(directoryHandle, filename, base64Data).then(success => {
                                 if (success) savedToFolder.value++;
                                 processedCount.value++;
                                 status.textContent = `⏳ 处理中... ${processedCount.value}/${uploadedImages.length}`;
@@ -820,6 +942,10 @@
                 
                 status.className = 'status success';
                 status.textContent = `✅ 处理完成！已保存 ${savedToFolder.value}/${uploadedImages.length} 张图片到文件夹：${directoryHandle.name}`;
+                
+                // 清空文件夹句柄，下次重新选择
+                // directoryHandle = null;
+                // folderStatus.classList.remove('show');
             } else {
                 status.textContent = '⏳ 打包文件中...';
                 
