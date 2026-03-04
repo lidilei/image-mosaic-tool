@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 16px;
@@ -81,6 +81,86 @@
 
         #fileInput {
             display: none;
+        }
+
+        /* 实时预览区域 */
+        .live-preview-section {
+            display: none;
+            margin-bottom: 30px;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8f9ff;
+        }
+
+        .live-preview-section.active {
+            display: block;
+        }
+
+        .live-preview-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .live-preview-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .live-preview-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .preview-image-container {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .preview-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .preview-image-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 4px;
+            background: #f0f0f0;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-image-wrapper img {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+
+        .preview-image-wrapper canvas {
+            max-width: 100%;
+            max-height: 400px;
+        }
+
+        .mosaic-indicator {
+            position: absolute;
+            border: 2px dashed #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            pointer-events: none;
         }
 
         .controls {
@@ -245,28 +325,6 @@
             background: #e0e0e0;
         }
 
-        .output-options {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9ff;
-            border-radius: 8px;
-        }
-
-        .output-options input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .output-options label {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 500;
-            color: #333;
-        }
-
         .status {
             text-align: center;
             margin-top: 20px;
@@ -300,6 +358,28 @@
             font-size: 14px;
             margin-bottom: 20px;
         }
+
+        .output-options {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+        }
+
+        .output-options input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .output-options label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -315,6 +395,28 @@
         </div>
 
         <div class="stats" id="stats"></div>
+
+        <!-- 实时预览区域 -->
+        <div class="live-preview-section" id="livePreviewSection">
+            <div class="live-preview-header">
+                <span>🎯 实时预览调整</span>
+                <span style="font-size: 13px; opacity: 0.9;">拖动滑块即时查看效果</span>
+            </div>
+            <div class="live-preview-content">
+                <div class="preview-image-container">
+                    <div class="preview-label">原图</div>
+                    <div class="preview-image-wrapper" id="originalWrapper">
+                        <img id="originalImage" src="" alt="原图">
+                    </div>
+                </div>
+                <div class="preview-image-container">
+                    <div class="preview-label">马赛克效果</div>
+                    <div class="preview-image-wrapper" id="previewWrapper">
+                        <canvas id="previewCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="controls">
             <div class="control-group">
@@ -354,9 +456,6 @@
         </div>
 
         <div class="action-buttons">
-            <button class="btn btn-secondary" id="previewBtn" disabled>
-                👁️ 预览效果
-            </button>
             <button class="btn btn-secondary" id="selectFolderBtn" disabled>
                 📂 选择输出文件夹
             </button>
@@ -383,6 +482,7 @@
     <script>
         let uploadedImages = [];
         let directoryHandle = null;
+        let previewImageLoaded = false;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -390,12 +490,14 @@
         const stats = document.getElementById('stats');
         const status = document.getElementById('status');
         const imageCount = document.getElementById('imageCount');
-        const previewBtn = document.getElementById('previewBtn');
-        const processBtn = document.getElementById('processBtn');
         const selectFolderBtn = document.getElementById('selectFolderBtn');
+        const processBtn = document.getElementById('processBtn');
         const overwriteOriginal = document.getElementById('overwriteOriginal');
         const folderStatus = document.getElementById('folderStatus');
         const folderPath = document.getElementById('folderPath');
+        const livePreviewSection = document.getElementById('livePreviewSection');
+        const originalImage = document.getElementById('originalImage');
+        const previewCanvas = document.getElementById('previewCanvas');
 
         // 控制滑块
         const controls = {
@@ -406,11 +508,12 @@
             intensity: { slider: document.getElementById('intensity'), display: document.getElementById('intensityValue') }
         };
 
-        // 更新控制值显示
+        // 更新控制值显示并刷新预览
         Object.keys(controls).forEach(key => {
             controls[key].slider.addEventListener('input', () => {
                 const value = controls[key].slider.value;
                 controls[key].display.textContent = key.includes('offset') || key.includes('mosaic') ? value + '%' : value;
+                updateLivePreview();
             });
         });
 
@@ -452,10 +555,63 @@
                             id: Date.now() + Math.random()
                         });
                         updatePreview();
+                        updateLivePreview();
                     };
                     reader.readAsDataURL(file);
                 }
             });
+        }
+
+        // 更新实时预览
+        function updateLivePreview() {
+            if (uploadedImages.length === 0 || !previewImageLoaded) return;
+
+            const img = originalImage;
+            const canvas = previewCanvas;
+            const ctx = canvas.getContext('2d');
+
+            const width = img.naturalWidth;
+            const height = img.naturalHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0);
+
+            const mosaicWidthPercent = parseInt(controls.mosaicWidth.slider.value) / 100;
+            const mosaicHeightPercent = parseInt(controls.mosaicHeight.slider.value) / 100;
+            const offsetXPercent = parseInt(controls.offsetX.slider.value) / 100;
+            const offsetYPercent = parseInt(controls.offsetY.slider.value) / 100;
+            const intensity = parseInt(controls.intensity.slider.value);
+
+            const mosaicWidth = Math.floor(width * mosaicWidthPercent);
+            const mosaicHeight = Math.floor(height * mosaicHeightPercent);
+            const x = Math.floor(width - mosaicWidth - (width * offsetXPercent));
+            const y = Math.floor(height - mosaicHeight - (height * offsetYPercent));
+
+            if (x >= 0 && y >= 0 && mosaicWidth > 0 && mosaicHeight > 0) {
+                const imageData = ctx.getImageData(x, y, mosaicWidth, mosaicHeight);
+                const data = imageData.data;
+
+                for (let py = 0; py < mosaicHeight; py += intensity) {
+                    for (let px = 0; px < mosaicWidth; px += intensity) {
+                        const idx = (py * mosaicWidth + px) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+
+                        for (let dy = 0; dy < intensity && py + dy < mosaicHeight; dy++) {
+                            for (let dx = 0; dx < intensity && px + dx < mosaicWidth; dx++) {
+                                const didx = ((py + dy) * mosaicWidth + (px + dx)) * 4;
+                                data[didx] = r;
+                                data[didx + 1] = g;
+                                data[didx + 2] = b;
+                            }
+                        }
+                    }
+                }
+
+                ctx.putImageData(imageData, x, y);
+            }
         }
 
         // 更新预览
@@ -476,15 +632,35 @@
             stats.textContent = uploadedImages.length > 0 ? `已上传 ${uploadedImages.length} 张图片` : '';
             
             const hasImages = uploadedImages.length > 0;
-            previewBtn.disabled = !hasImages;
-            processBtn.disabled = !hasImages;
             selectFolderBtn.disabled = !hasImages;
+            processBtn.disabled = !hasImages;
+
+            // 显示/隐藏实时预览区域
+            if (hasImages) {
+                livePreviewSection.classList.add('active');
+                originalImage.src = uploadedImages[0].dataUrl;
+            } else {
+                livePreviewSection.classList.remove('active');
+            }
         }
+
+        // 原图加载完成
+        originalImage.addEventListener('load', () => {
+            previewImageLoaded = true;
+            updateLivePreview();
+        });
 
         // 移除图片
         window.removeImage = (id) => {
             uploadedImages = uploadedImages.filter(img => img.id !== id);
             updatePreview();
+            if (uploadedImages.length > 0) {
+                originalImage.src = uploadedImages[0].dataUrl;
+                previewImageLoaded = originalImage.complete;
+                if (previewImageLoaded) updateLivePreview();
+            } else {
+                previewImageLoaded = false;
+            }
         };
 
         // 应用马赛克效果
@@ -536,40 +712,52 @@
             return canvas.toDataURL('image/png');
         }
 
-        // 预览效果
-        previewBtn.addEventListener('click', () => {
-            if (uploadedImages.length === 0) return;
+        // 选择输出文件夹
+        selectFolderBtn.addEventListener('click', async () => {
+            if (!('showDirectoryPicker' in window)) {
+                status.className = 'status error';
+                status.textContent = '❌ 您的浏览器不支持文件夹选择，请使用 Chrome/Edge 等现代浏览器';
+                return;
+            }
 
-            status.className = 'status processing';
-            status.textContent = '⏳ 生成预览中...';
-
-            setTimeout(() => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const result = applyMosaic(img, canvas);
-                    
-                    const previewItem = document.createElement('div');
-                    previewItem.className = 'preview-item';
-                    previewItem.style.position = 'fixed';
-                    previewItem.style.top = '50%';
-                    previewItem.style.left = '50%';
-                    previewItem.style.transform = 'translate(-50%, -50%)';
-                    previewItem.style.zIndex = '1000';
-                    previewItem.style.maxWidth = '80vw';
-                    previewItem.style.maxHeight = '80vh';
-                    previewItem.innerHTML = `
-                        <img src="${result}" style="max-width: 100%; max-height: 80vh;">
-                        <button class="remove-btn" style="opacity: 1;" onclick="this.parentElement.remove()">×</button>
-                    `;
-                    document.body.appendChild(previewItem);
-                    
-                    status.className = 'status success';
-                    status.textContent = '✅ 预览已生成 (点击图片关闭)';
-                };
-                img.src = uploadedImages[0].dataUrl;
-            }, 100);
+            try {
+                directoryHandle = await window.showDirectoryPicker();
+                folderPath.textContent = directoryHandle.name;
+                folderStatus.style.display = 'block';
+                
+                status.className = 'status success';
+                status.textContent = `✅ 已选择输出文件夹：${directoryHandle.name}`;
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    status.className = 'status error';
+                    status.textContent = '❌ 选择文件夹失败：' + error.message;
+                }
+            }
         });
+
+        // 保存到指定文件夹
+        async function saveToDirectory(filename, base64Data) {
+            if (!directoryHandle) return false;
+
+            try {
+                const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                
+                const binaryString = atob(base64Data);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                await writable.write(bytes);
+                await writable.close();
+                return true;
+            } catch (error) {
+                console.error('Save failed:', error);
+                return false;
+            }
+        }
 
         // 批量处理并下载
         processBtn.addEventListener('click', async () => {
@@ -654,53 +842,6 @@
                 }
             }
         });
-
-        // 选择输出文件夹
-        selectFolderBtn.addEventListener('click', async () => {
-            if (!('showDirectoryPicker' in window)) {
-                status.className = 'status error';
-                status.textContent = '❌ 您的浏览器不支持文件夹选择，请使用 Chrome/Edge 等现代浏览器';
-                return;
-            }
-
-            try {
-                directoryHandle = await window.showDirectoryPicker();
-                folderPath.textContent = directoryHandle.name;
-                folderStatus.style.display = 'block';
-                
-                status.className = 'status success';
-                status.textContent = `✅ 已选择输出文件夹：${directoryHandle.name}`;
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    status.className = 'status error';
-                    status.textContent = '❌ 选择文件夹失败：' + error.message;
-                }
-            }
-        });
-
-        // 保存到指定文件夹
-        async function saveToDirectory(filename, base64Data) {
-            if (!directoryHandle) return false;
-
-            try {
-                const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
-                const writable = await fileHandle.createWritable();
-                
-                const binaryString = atob(base64Data);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                
-                await writable.write(bytes);
-                await writable.close();
-                return true;
-            } catch (error) {
-                console.error('Save failed:', error);
-                return false;
-            }
-        }
 
         // 动态加载 JSZip
         function loadScript(src) {
