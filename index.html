@@ -382,6 +382,82 @@
             gap: 8px;
         }
 
+        .rename-options {
+            margin-top: 15px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .rename-options.show {
+            display: block;
+        }
+
+        .rename-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .rename-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .rename-row label {
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .rename-row input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .rename-row input[type="text"]:focus {
+            border-color: #667eea;
+        }
+
+        .rename-row input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            width: 80px;
+        }
+
+        .rename-row select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+        }
+
+        .rename-preview {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f2ff;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .rename-preview strong {
+            color: #667eea;
+        }
+
         .output-option-item {
             display: flex;
             align-items: center;
@@ -532,6 +608,48 @@
                 </label>
             </div>
 
+            <div class="output-option-item" style="flex-direction: column; align-items: flex-start;">
+                <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                    <input type="checkbox" id="enableRename">
+                    <label for="enableRename" style="flex: 1;">
+                        <strong>启用重命名</strong>
+                        <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
+                            按"前缀 + 序号"格式重命名（如：IMG_01.png, IMG_02.png）
+                        </div>
+                    </label>
+                </div>
+
+                <div class="rename-options" id="renameOptions">
+                    <div class="rename-row">
+                        <label>前缀：</label>
+                        <input type="text" id="renamePrefix" placeholder="输入前缀" value="IMG" style="flex: 1; max-width: 200px;">
+                        
+                        <label>序号位数：</label>
+                        <select id="renameDigits">
+                            <option value="2">2 位 (01, 02...)</option>
+                            <option value="3">3 位 (001, 002...)</option>
+                            <option value="4">4 位 (0001, 0002...)</option>
+                        </select>
+                        
+                        <label>起始序号：</label>
+                        <input type="number" id="renameStart" value="1" min="1" max="9999">
+                    </div>
+                    
+                    <div class="rename-row">
+                        <label>分隔符：</label>
+                        <select id="renameSeparator">
+                            <option value="_">下划线 (_)</option>
+                            <option value="-">中划线 (-)</option>
+                            <option value="">无</option>
+                        </select>
+                        
+                        <div class="rename-preview" id="renamePreview">
+                            预览：<strong>IMG_01.png</strong>, <strong>IMG_02.png</strong>...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="folder-status" id="folderStatus">
                 ✅ 输出文件夹：<strong id="folderPath"></strong>
                 <div style="margin-top: 5px; font-size: 13px;">点击"批量处理"后将直接保存到此文件夹</div>
@@ -568,6 +686,15 @@
         const livePreviewSection = document.getElementById('livePreviewSection');
         const originalImage = document.getElementById('originalImage');
         const previewCanvas = document.getElementById('previewCanvas');
+        
+        // 重命名相关元素
+        const enableRename = document.getElementById('enableRename');
+        const renameOptions = document.getElementById('renameOptions');
+        const renamePrefix = document.getElementById('renamePrefix');
+        const renameDigits = document.getElementById('renameDigits');
+        const renameStart = document.getElementById('renameStart');
+        const renameSeparator = document.getElementById('renameSeparator');
+        const renamePreview = document.getElementById('renamePreview');
 
         // 控制滑块
         const controls = {
@@ -586,6 +713,46 @@
                 updateLivePreview();
             });
         });
+
+        // 重命名功能：显示/隐藏选项
+        enableRename.addEventListener('change', () => {
+            if (enableRename.checked) {
+                renameOptions.classList.add('show');
+                overwriteOriginal.checked = false; // 启用重命名时关闭覆盖原文件名
+                updateRenamePreview();
+            } else {
+                renameOptions.classList.remove('show');
+            }
+        });
+
+        // 重命名功能：更新预览
+        function updateRenamePreview() {
+            const prefix = renamePrefix.value || 'IMG';
+            const digits = parseInt(renameDigits.value);
+            const start = parseInt(renameStart.value) || 1;
+            const separator = renameSeparator.value;
+            
+            const num1 = String(start).padStart(digits, '0');
+            const num2 = String(start + 1).padStart(digits, '0');
+            
+            renamePreview.innerHTML = `预览：<strong>${prefix}${separator}${num1}.png</strong>, <strong>${prefix}${separator}${num2}.png</strong>...`;
+        }
+
+        // 重命名选项变化时更新预览
+        [renamePrefix, renameDigits, renameStart, renameSeparator].forEach(el => {
+            el.addEventListener('input', updateRenamePreview);
+        });
+
+        // 生成重命名文件名
+        function generateRenameName(index, total) {
+            const prefix = renamePrefix.value || 'IMG';
+            const digits = parseInt(renameDigits.value);
+            const start = parseInt(renameStart.value) || 1;
+            const separator = renameSeparator.value;
+            
+            const num = String(start + index).padStart(digits, '0');
+            return `${prefix}${separator}${num}.png`;
+        }
 
         // 点击上传
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -856,6 +1023,7 @@
 
             const useAutoSave = autoSaveEnabled.checked;
             const useOverwrite = overwriteOriginal.checked;
+            const useRename = enableRename.checked;
 
             // 如果启用自动保存但没有选择文件夹，提示用户选择
             if (useAutoSave && !directoryHandle) {
@@ -907,7 +1075,10 @@
                         
                         // 生成文件名
                         let filename;
-                        if (useOverwrite) {
+                        if (useRename) {
+                            // 使用重命名规则：前缀 + 序号
+                            filename = generateRenameName(i, uploadedImages.length);
+                        } else if (useOverwrite) {
                             // 保持原文件名，但改为 PNG 格式
                             const originalName = imgData.file.name;
                             const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
