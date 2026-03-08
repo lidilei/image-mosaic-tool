@@ -1230,20 +1230,22 @@
             
             // 应用马赛克
             if (enableMosaicCheck.checked) {
+                // 计算马赛克区域在裁剪后画布上的坐标
                 let mosaicX = mosaicRect.x - sourceX;
                 let mosaicY = mosaicRect.y - sourceY;
                 let mosaicW = mosaicRect.width;
                 let mosaicH = mosaicRect.height;
                 
-                // 裁剪到可见区域
+                // 确保马赛克区域在画布范围内
                 if (mosaicX + mosaicW > 0 && mosaicY + mosaicH > 0 && mosaicX < sourceWidth && mosaicY < sourceHeight) {
-                    mosaicX = Math.max(0, mosaicX);
-                    mosaicY = Math.max(0, mosaicY);
+                    // 裁剪马赛克区域到画布边界
+                    mosaicX = Math.max(0, Math.min(mosaicX, sourceWidth - 1));
+                    mosaicY = Math.max(0, Math.min(mosaicY, sourceHeight - 1));
                     mosaicW = Math.min(mosaicW, sourceWidth - mosaicX);
                     mosaicH = Math.min(mosaicH, sourceHeight - mosaicY);
                     
                     if (mosaicW > 0 && mosaicH > 0) {
-                        applyMosaicEffect(ctx, mosaicX, mosaicY, mosaicW, mosaicH, 10);
+                        applyMosaicEffect(ctx, Math.floor(mosaicX), Math.floor(mosaicY), Math.floor(mosaicW), Math.floor(mosaicH), 10);
                     }
                 }
             }
