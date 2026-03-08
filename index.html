@@ -155,7 +155,6 @@
             opacity: 1;
         }
 
-        /* 交互式画布区域 */
         .interactive-section {
             display: none;
             margin-bottom: 30px;
@@ -181,24 +180,31 @@
             gap: 10px;
         }
 
-        .interactive-header .mode-toggles {
+        .mode-toggles {
             display: flex;
             gap: 10px;
+            align-items: center;
         }
 
-        .mode-btn {
-            padding: 6px 14px;
-            border: 2px solid white;
-            background: transparent;
-            color: white;
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
             border-radius: 20px;
             cursor: pointer;
             font-size: 13px;
-            font-weight: 500;
             transition: all 0.3s;
         }
 
-        .mode-btn.active {
+        .mode-toggle input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .mode-toggle.active {
             background: white;
             color: #667eea;
         }
@@ -263,7 +269,6 @@
             pointer-events: none;
         }
 
-        /* 控制面板 */
         .control-panel {
             background: white;
             border-radius: 8px;
@@ -275,9 +280,6 @@
             font-size: 15px;
             color: #333;
             margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         .control-item {
@@ -371,23 +373,13 @@
             display: none;
         }
 
-        .status.success {
-            background: #d4edda;
-            color: #155724;
+        .status.success, .status.error, .status.processing {
             display: block;
         }
 
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-
-        .status.processing {
-            background: #fff3cd;
-            color: #856404;
-            display: block;
-        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.processing { background: #fff3cd; color: #856404; }
 
         .stats {
             text-align: center;
@@ -446,9 +438,7 @@
             display: none;
         }
 
-        .folder-status.show {
-            display: block;
-        }
+        .folder-status.show { display: block; }
 
         .btn-small {
             padding: 8px 16px;
@@ -465,15 +455,35 @@
             font-size: 14px;
         }
 
-        .info-box strong {
-            color: #0d47a1;
+        .info-box strong { color: #0d47a1; }
+        
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 13px;
         }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+        
+        .legend-crop { background: rgba(102, 126, 234, 0.5); border: 2px solid #667eea; }
+        .legend-mosaic { background: rgba(255, 152, 0, 0.5); border: 2px solid #ff9800; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🖼️ 图片裁剪与马赛克工具</h1>
-        <p class="subtitle">拖拽调整 · 固定 3:4 比例裁剪 · 可选马赛克</p>
+        <p class="subtitle">拖拽调整 · 固定 3:4 裁剪 · 自由马赛克 · 可组合使用</p>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
@@ -487,26 +497,37 @@
         <div class="info-box" id="infoBox" style="display: none;">
             <strong>💡 使用提示：</strong>
             <ul style="margin: 8px 0 0 20px; line-height: 1.8;">
-                <li><strong>裁剪模式：</strong>在左侧画布上拖拽蓝色框调整裁剪区域（固定 3:4 比例）</li>
-                <li><strong>马赛克模式：</strong>在左侧画布上拖拽橙色框调整马赛克区域</li>
-                <li>右侧画布实时显示最终效果</li>
+                <li><strong>蓝色框（裁剪）：</strong>固定 3:4 比例，拖拽边框或内部调整</li>
+                <li><strong>橙色框（马赛克）：</strong>自由比例，拖拽四角调整大小</li>
+                <li>两个框可以<strong>同时使用</strong>，也可以单独使用</li>
+                <li>右侧实时显示最终效果</li>
             </ul>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color legend-crop"></div> 裁剪区域</div>
+                <div class="legend-item"><div class="legend-color legend-mosaic"></div> 马赛克区域</div>
+            </div>
         </div>
 
         <div class="interactive-section" id="interactiveSection">
             <div class="interactive-header">
                 <span>🎯 交互式调整</span>
                 <div class="mode-toggles">
-                    <button class="mode-btn active" data-mode="crop">✂️ 裁剪 (3:4)</button>
-                    <button class="mode-btn" data-mode="mosaic">🔲 马赛克</button>
+                    <label class="mode-toggle active">
+                        <input type="checkbox" id="enableCropCheck" checked>
+                        ✂️ 裁剪
+                    </label>
+                    <label class="mode-toggle">
+                        <input type="checkbox" id="enableMosaicCheck">
+                        🔲 马赛克
+                    </label>
                 </div>
             </div>
             <div class="interactive-content">
                 <div class="canvas-container">
-                    <div class="canvas-label">📐 调整区域（拖拽）</div>
+                    <div class="canvas-label">📐 调整区域（拖拽边框或内部）</div>
                     <div class="canvas-wrapper" id="editWrapper">
                         <canvas id="editCanvas"></canvas>
-                        <div class="canvas-hint" id="canvasHint">拖拽调整区域大小</div>
+                        <div class="canvas-hint" id="canvasHint">拖拽调整区域</div>
                     </div>
                 </div>
                 <div class="canvas-container">
@@ -556,20 +577,19 @@
     
     let uploadedImages = [];
     let directoryHandle = null;
-    let currentMode = 'crop'; // 'crop' or 'mosaic'
     
     // 裁剪区域（固定 3:4 比例）
-    let cropRect = { x: 0, y: 0, width: 0, height: 0 };
-    // 马赛克区域
-    let mosaicRect = { x: 0, y: 0, width: 0, height: 0 };
+    let cropRect = { x: 0, y: 0, width: 0, height: 0, active: false };
+    // 马赛克区域（自由比例）
+    let mosaicRect = { x: 0, y: 0, width: 0, height: 0, active: false };
     
     // 拖拽状态
     let isDragging = false;
     let isResizing = false;
     let dragStart = { x: 0, y: 0 };
-    let resizeHandle = null; // 'tl', 'tr', 'bl', 'br', 't', 'b', 'l', 'r'
+    let resizeHandle = null;
+    let currentRect = null; // 当前操作的区域
     
-    // 当前图片
     let currentImage = null;
     let canvasScale = 1;
 
@@ -591,41 +611,46 @@
     const canvasHint = document.getElementById('canvasHint');
     const infoBox = document.getElementById('infoBox');
     
-    const modeBtns = document.querySelectorAll('.mode-btn');
+    const enableCropCheck = document.getElementById('enableCropCheck');
+    const enableMosaicCheck = document.getElementById('enableMosaicCheck');
 
     const editCtx = editCanvas.getContext('2d');
     const previewCtx = previewCanvas.getContext('2d');
 
     // 模式切换
-    modeBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            modeBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentMode = this.dataset.mode;
-            canvasHint.textContent = currentMode === 'crop' ? '拖拽调整裁剪区域 (3:4)' : '拖拽调整马赛克区域';
-            redrawEditCanvas();
-        });
+    enableCropCheck.addEventListener('change', function() {
+        updateModeUI();
+        redrawEditCanvas();
+        updatePreview();
     });
 
-    // 上传区域
-    uploadArea.addEventListener('click', function() {
-        fileInput.click();
+    enableMosaicCheck.addEventListener('change', function() {
+        updateModeUI();
+        redrawEditCanvas();
+        updatePreview();
     });
 
-    fileInput.addEventListener('change', function(e) {
-        handleFiles(e.target.files);
-    });
+    function updateModeUI() {
+        enableCropCheck.parentElement.classList.toggle('active', enableCropCheck.checked);
+        enableMosaicCheck.parentElement.classList.toggle('active', enableMosaicCheck.checked);
+        
+        if (enableCropCheck.checked && !enableMosaicCheck.checked) {
+            canvasHint.textContent = '拖拽蓝色框调整裁剪区域 (3:4)';
+        } else if (!enableCropCheck.checked && enableMosaicCheck.checked) {
+            canvasHint.textContent = '拖拽橙色框调整马赛克区域';
+        } else if (enableCropCheck.checked && enableMosaicCheck.checked) {
+            canvasHint.textContent = '拖拽蓝色框 (裁剪) 或橙色框 (马赛克)';
+        } else {
+            canvasHint.textContent = '请至少启用一种模式';
+        }
+    }
 
-    uploadArea.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
-    });
-
-    uploadArea.addEventListener('dragleave', function() {
-        uploadArea.classList.remove('dragover');
-    });
-
-    uploadArea.addEventListener('drop', function(e) {
+    // 上传
+    uploadArea.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => handleFiles(e.target.files));
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
         handleFiles(e.dataTransfer.files);
@@ -637,20 +662,17 @@
         Array.from(files).forEach(file => {
             if (validTypes.includes(file.type)) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = e => {
                     const img = new Image();
-                    img.onload = function() {
+                    img.onload = () => {
                         uploadedImages.push({
-                            file: file,
-                            dataUrl: e.target.result,
-                            image: img,
+                            file, dataUrl: e.target.result, image: img,
                             id: Date.now() + Math.random()
                         });
                         
                         if (uploadedImages.length === 1) {
                             initInteractive(img);
                         }
-                        
                         updatePreview();
                     };
                     img.src = e.target.result;
@@ -665,22 +687,21 @@
         interactiveSection.classList.add('active');
         infoBox.style.display = 'block';
         
-        // 初始化裁剪区域（默认左上角 3:4 比例）
         const baseSize = Math.min(img.width, img.height) * 0.6;
         cropRect = {
-            x: 0,
-            y: 0,
+            x: 0, y: 0,
             width: baseSize,
-            height: baseSize * 4 / 3
+            height: baseSize * 4 / 3,
+            active: enableCropCheck.checked
         };
         
-        // 初始化马赛克区域（默认右下角）
         const mosaicSize = Math.min(img.width, img.height) * 0.2;
         mosaicRect = {
             x: img.width - mosaicSize - img.width * 0.05,
             y: img.height - mosaicSize * 4 / 3 - img.height * 0.05,
             width: mosaicSize,
-            height: mosaicSize * 4 / 3
+            height: mosaicSize * 4 / 3,
+            active: enableMosaicCheck.checked
         };
         
         setupCanvas();
@@ -717,16 +738,22 @@
         if (!currentImage) return;
         
         const ctx = editCtx;
-        const img = currentImage;
-        
         ctx.clearRect(0, 0, editCanvas.width, editCanvas.height);
-        ctx.drawImage(img, 0, 0, editCanvas.width, editCanvas.height);
+        ctx.drawImage(currentImage, 0, 0, editCanvas.width, editCanvas.height);
         
-        const rect = currentMode === 'crop' ? cropRect : mosaicRect;
-        const color = currentMode === 'crop' ? 'rgba(102, 126, 234, 0.3)' : 'rgba(255, 152, 0, 0.3)';
-        const borderColor = currentMode === 'crop' ? '#667eea' : '#ff9800';
+        // 绘制裁剪区域
+        if (enableCropCheck.checked) {
+            drawRect(ctx, cropRect, 'rgba(102, 126, 234, 0.3)', '#667eea');
+        }
         
-        // 绘制半透明遮罩
+        // 绘制马赛克区域
+        if (enableMosaicCheck.checked) {
+            drawRect(ctx, mosaicRect, 'rgba(255, 152, 0, 0.3)', '#ff9800');
+        }
+    }
+
+    function drawRect(ctx, rect, color, borderColor) {
+        // 半透明遮罩
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, editCanvas.width, editCanvas.height);
         
@@ -734,47 +761,38 @@
         ctx.save();
         ctx.beginPath();
         ctx.rect(
-            rect.x * canvasScale,
-            rect.y * canvasScale,
-            rect.width * canvasScale,
-            rect.height * canvasScale
+            rect.x * canvasScale, rect.y * canvasScale,
+            rect.width * canvasScale, rect.height * canvasScale
         );
         ctx.clip();
         ctx.clearRect(0, 0, editCanvas.width, editCanvas.height);
-        ctx.drawImage(img, 0, 0, editCanvas.width, editCanvas.height);
+        ctx.drawImage(currentImage, 0, 0, editCanvas.width, editCanvas.height);
         ctx.restore();
         
-        // 绘制边框
+        // 边框
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 2;
         ctx.strokeRect(
-            rect.x * canvasScale,
-            rect.y * canvasScale,
-            rect.width * canvasScale,
-            rect.height * canvasScale
+            rect.x * canvasScale, rect.y * canvasScale,
+            rect.width * canvasScale, rect.height * canvasScale
         );
         
-        // 绘制角点
+        // 角点
         const handleSize = 8;
         ctx.fillStyle = borderColor;
-        const handles = getResizeHandles(rect);
+        const handles = [
+            { x: rect.x, y: rect.y },
+            { x: rect.x + rect.width, y: rect.y },
+            { x: rect.x, y: rect.y + rect.height },
+            { x: rect.x + rect.width, y: rect.y + rect.height }
+        ];
         handles.forEach(h => {
             ctx.fillRect(
                 h.x * canvasScale - handleSize / 2,
                 h.y * canvasScale - handleSize / 2,
-                handleSize,
-                handleSize
+                handleSize, handleSize
             );
         });
-    }
-
-    function getResizeHandles(rect) {
-        return [
-            { x: rect.x, y: rect.y, name: 'tl' },
-            { x: rect.x + rect.width, y: rect.y, name: 'tr' },
-            { x: rect.x, y: rect.y + rect.height, name: 'bl' },
-            { x: rect.x + rect.width, y: rect.y + rect.height, name: 'br' }
-        ];
     }
 
     function getMousePos(e) {
@@ -787,10 +805,14 @@
         };
     }
 
-    function isOverHandle(pos, rect) {
-        const handles = getResizeHandles(rect);
+    function getHandleAt(pos, rect) {
         const handleSize = 15 / canvasScale;
-        
+        const handles = [
+            { x: rect.x, y: rect.y, name: 'tl' },
+            { x: rect.x + rect.width, y: rect.y, name: 'tr' },
+            { x: rect.x, y: rect.y + rect.height, name: 'bl' },
+            { x: rect.x + rect.width, y: rect.y + rect.height, name: 'br' }
+        ];
         for (let h of handles) {
             if (Math.abs(pos.x - h.x) < handleSize && Math.abs(pos.y - h.y) < handleSize) {
                 return h.name;
@@ -807,10 +829,8 @@
     // 鼠标/触摸事件
     editCanvas.addEventListener('mousedown', handleStart);
     editCanvas.addEventListener('touchstart', handleStart, { passive: false });
-    
     editCanvas.addEventListener('mousemove', handleMove);
     editCanvas.addEventListener('touchmove', handleMove, { passive: false });
-    
     editCanvas.addEventListener('mouseup', handleEnd);
     editCanvas.addEventListener('touchend', handleEnd);
     editCanvas.addEventListener('touchcancel', handleEnd);
@@ -818,117 +838,106 @@
     function handleStart(e) {
         e.preventDefault();
         const pos = getMousePos(e);
-        const rect = currentMode === 'crop' ? cropRect : mosaicRect;
         
-        const handle = isOverHandle(pos, rect);
-        if (handle) {
-            isResizing = true;
-            resizeHandle = handle;
-        } else if (isInsideRect(pos, rect)) {
-            isDragging = true;
-            dragStart = { x: pos.x - rect.x, y: pos.y - rect.y };
-        } else {
-            // 点击外部，移动选区到点击位置
-            if (currentMode === 'crop') {
-                cropRect.x = Math.max(0, Math.min(pos.x - cropRect.width / 2, currentImage.width - cropRect.width));
-                cropRect.y = Math.max(0, Math.min(pos.y - cropRect.height / 2, currentImage.height - cropRect.height));
-            } else {
-                mosaicRect.x = Math.max(0, Math.min(pos.x - mosaicRect.width / 2, currentImage.width - mosaicRect.width));
-                mosaicRect.y = Math.max(0, Math.min(pos.y - mosaicRect.height / 2, currentImage.height - mosaicRect.height));
+        // 检查是否点击到马赛克区域
+        if (enableMosaicCheck.checked) {
+            const handle = getHandleAt(pos, mosaicRect);
+            if (handle) {
+                isResizing = true;
+                resizeHandle = handle;
+                currentRect = mosaicRect;
+                return;
             }
-            redrawEditCanvas();
-            updatePreview();
+            if (isInsideRect(pos, mosaicRect)) {
+                isDragging = true;
+                dragStart = { x: pos.x - mosaicRect.x, y: pos.y - mosaicRect.y };
+                currentRect = mosaicRect;
+                return;
+            }
+        }
+        
+        // 检查是否点击到裁剪区域
+        if (enableCropCheck.checked) {
+            const handle = getHandleAt(pos, cropRect);
+            if (handle) {
+                isResizing = true;
+                resizeHandle = handle;
+                currentRect = cropRect;
+                return;
+            }
+            if (isInsideRect(pos, cropRect)) {
+                isDragging = true;
+                dragStart = { x: pos.x - cropRect.x, y: pos.y - cropRect.y };
+                currentRect = cropRect;
+                return;
+            }
         }
     }
 
     function handleMove(e) {
-        if (!isDragging && !isResizing) return;
+        if (!isDragging && !isResizing || !currentRect) return;
         e.preventDefault();
         
         const pos = getMousePos(e);
+        const img = currentImage;
         
         if (isDragging) {
-            const rect = currentMode === 'crop' ? cropRect : mosaicRect;
             let newX = pos.x - dragStart.x;
             let newY = pos.y - dragStart.y;
             
-            newX = Math.max(0, Math.min(newX, currentImage.width - rect.width));
-            newY = Math.max(0, Math.min(newY, currentImage.height - rect.height));
+            newX = Math.max(0, Math.min(newX, img.width - currentRect.width));
+            newY = Math.max(0, Math.min(newY, img.height - currentRect.height));
             
-            if (currentMode === 'crop') {
-                cropRect.x = newX;
-                cropRect.y = newY;
-            } else {
-                mosaicRect.x = newX;
-                mosaicRect.y = newY;
-            }
+            currentRect.x = newX;
+            currentRect.y = newY;
         } else if (isResizing) {
-            const rect = currentMode === 'crop' ? cropRect : mosaicRect;
-            const minSize = 50;
-            const aspectRatio = 3 / 4;
-            
-            let newRect = { ...rect };
+            const minSize = 30;
+            let newRect = { ...currentRect };
             
             switch (resizeHandle) {
                 case 'br':
-                    newRect.width = Math.max(minSize, pos.x - rect.x);
-                    if (currentMode === 'crop') {
+                    newRect.width = Math.max(minSize, pos.x - currentRect.x);
+                    newRect.height = Math.max(minSize, pos.y - currentRect.y);
+                    if (currentRect === cropRect) {
                         newRect.height = newRect.width * 4 / 3;
-                    } else {
-                        newRect.height = Math.max(minSize * 4 / 3, pos.y - rect.y);
-                        newRect.width = newRect.height * aspectRatio;
                     }
                     break;
                 case 'bl':
-                    newRect.width = Math.max(minSize, pos.x - rect.x);
-                    newRect.y = Math.min(rect.y + rect.height - minSize * 4 / 3, pos.y);
-                    if (currentMode === 'crop') {
+                    newRect.width = Math.max(minSize, pos.x - currentRect.x);
+                    newRect.height = Math.max(minSize, currentRect.y + currentRect.height - pos.y);
+                    newRect.y = currentRect.y + currentRect.height - newRect.height;
+                    if (currentRect === cropRect) {
                         newRect.height = newRect.width * 4 / 3;
-                        newRect.y = rect.y + rect.height - newRect.height;
-                    } else {
-                        newRect.height = Math.max(minSize * 4 / 3, rect.y + rect.height - pos.y);
-                        newRect.width = newRect.height * aspectRatio;
-                        newRect.y = rect.y + rect.height - newRect.height;
+                        newRect.y = currentRect.y + currentRect.height - newRect.height;
                     }
                     break;
                 case 'tr':
-                    newRect.x = Math.min(rect.x + rect.width - minSize, pos.x);
-                    newRect.width = rect.x + rect.width - newRect.x;
-                    if (currentMode === 'crop') {
+                    newRect.width = Math.max(minSize, currentRect.x + currentRect.width - pos.x);
+                    newRect.x = currentRect.x + currentRect.width - newRect.width;
+                    newRect.height = Math.max(minSize, pos.y - currentRect.y);
+                    if (currentRect === cropRect) {
                         newRect.height = newRect.width * 4 / 3;
-                    } else {
-                        newRect.height = Math.max(minSize * 4 / 3, pos.y - rect.y);
-                        newRect.width = newRect.height * aspectRatio;
-                        newRect.x = rect.x + rect.width - newRect.width;
                     }
                     break;
                 case 'tl':
-                    newRect.x = Math.min(rect.x + rect.width - minSize, pos.x);
-                    newRect.y = Math.min(rect.y + rect.height - minSize * 4 / 3, pos.y);
-                    newRect.width = rect.x + rect.width - newRect.x;
-                    if (currentMode === 'crop') {
+                    newRect.width = Math.max(minSize, currentRect.x + currentRect.width - pos.x);
+                    newRect.x = currentRect.x + currentRect.width - newRect.width;
+                    newRect.height = Math.max(minSize, currentRect.y + currentRect.height - pos.y);
+                    newRect.y = currentRect.y + currentRect.height - newRect.height;
+                    if (currentRect === cropRect) {
                         newRect.height = newRect.width * 4 / 3;
-                        newRect.y = rect.y + rect.height - newRect.height;
-                    } else {
-                        newRect.height = rect.y + rect.height - newRect.y;
-                        newRect.width = newRect.height * aspectRatio;
-                        newRect.x = rect.x + rect.width - newRect.width;
-                        newRect.y = rect.y + rect.height - newRect.height;
+                        newRect.y = currentRect.y + currentRect.height - newRect.height;
                     }
                     break;
             }
             
             // 边界检查
-            newRect.x = Math.max(0, Math.min(newRect.x, currentImage.width - newRect.width));
-            newRect.y = Math.max(0, Math.min(newRect.y, currentImage.height - newRect.height));
-            newRect.width = Math.min(newRect.width, currentImage.width - newRect.x);
-            newRect.height = Math.min(newRect.height, currentImage.height - newRect.y);
+            newRect.x = Math.max(0, Math.min(newRect.x, img.width - newRect.width));
+            newRect.y = Math.max(0, Math.min(newRect.y, img.height - newRect.height));
+            newRect.width = Math.min(newRect.width, img.width - newRect.x);
+            newRect.height = Math.min(newRect.height, img.height - newRect.y);
             
-            if (currentMode === 'crop') {
-                cropRect = newRect;
-            } else {
-                mosaicRect = newRect;
-            }
+            Object.assign(currentRect, newRect);
         }
         
         redrawEditCanvas();
@@ -939,6 +948,7 @@
         isDragging = false;
         isResizing = false;
         resizeHandle = null;
+        currentRect = null;
     }
 
     function updatePreview() {
@@ -949,27 +959,41 @@
         
         ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         
-        // 应用裁剪
-        let sourceX = cropRect.x;
-        let sourceY = cropRect.y;
-        let sourceWidth = cropRect.width;
-        let sourceHeight = cropRect.height;
+        // 确定绘制区域
+        let sourceX = 0, sourceY = 0, sourceWidth = img.width, sourceHeight = img.height;
         
+        // 如果启用裁剪，使用裁剪区域
+        if (enableCropCheck.checked) {
+            sourceX = cropRect.x;
+            sourceY = cropRect.y;
+            sourceWidth = cropRect.width;
+            sourceHeight = cropRect.height;
+        }
+        
+        // 绘制到预览 canvas
         ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, previewCanvas.width, previewCanvas.height);
         
-        // 应用马赛克
-        if (enableMosaic()) {
-            const mosaicX = (mosaicRect.x - sourceX) / sourceWidth * previewCanvas.width;
-            const mosaicY = (mosaicRect.y - sourceY) / sourceHeight * previewCanvas.height;
-            const mosaicW = mosaicRect.width / sourceWidth * previewCanvas.width;
-            const mosaicH = mosaicRect.height / sourceHeight * previewCanvas.height;
+        // 如果启用马赛克，应用马赛克效果
+        if (enableMosaicCheck.checked) {
+            let mosaicX = (mosaicRect.x - sourceX) / sourceWidth * previewCanvas.width;
+            let mosaicY = (mosaicRect.y - sourceY) / sourceHeight * previewCanvas.height;
+            let mosaicW = mosaicRect.width / sourceWidth * previewCanvas.width;
+            let mosaicH = mosaicRect.height / sourceHeight * previewCanvas.height;
             
-            if (mosaicX >= 0 && mosaicY >= 0 && mosaicW > 0 && mosaicH > 0) {
-                applyMosaicEffect(ctx, mosaicX, mosaicY, mosaicW, mosaicH, 10);
+            // 只绘制在可见区域内的马赛克
+            if (mosaicX + mosaicW > 0 && mosaicY + mosaicH > 0 && mosaicX < previewCanvas.width && mosaicY < previewCanvas.height) {
+                mosaicX = Math.max(0, mosaicX);
+                mosaicY = Math.max(0, mosaicY);
+                mosaicW = Math.min(mosaicW, previewCanvas.width - mosaicX);
+                mosaicH = Math.min(mosaicH, previewCanvas.height - mosaicY);
+                
+                if (mosaicW > 0 && mosaicH > 0) {
+                    applyMosaicEffect(ctx, mosaicX, mosaicY, mosaicW, mosaicH, 10);
+                }
             }
         }
         
-        // 更新缩略图
+        // 更新缩略图列表
         previewContainer.innerHTML = '';
         uploadedImages.forEach(imgData => {
             const item = document.createElement('div');
@@ -987,10 +1011,6 @@
         processBtn.disabled = uploadedImages.length === 0;
     }
 
-    function enableMosaic() {
-        return document.getElementById('enableMosaic') && document.getElementById('enableMosaic').checked;
-    }
-
     function applyMosaicEffect(ctx, x, y, w, h, blockSize) {
         const imageData = ctx.getImageData(x, y, w, h);
         const data = imageData.data;
@@ -998,9 +1018,7 @@
         for (let py = 0; py < h; py += blockSize) {
             for (let px = 0; px < w; px += blockSize) {
                 const idx = (py * w + px) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
+                const r = data[idx], g = data[idx + 1], b = data[idx + 2];
                 
                 for (let dy = 0; dy < blockSize && py + dy < h; dy++) {
                     for (let dx = 0; dx < blockSize && px + dx < w; dx++) {
@@ -1040,10 +1058,8 @@
                 status.textContent = '❌ 您的浏览器不支持文件夹选择';
                 return;
             }
-
             status.className = 'status processing';
             status.textContent = '📂 请选择输出文件夹...';
-
             try {
                 directoryHandle = await window.showDirectoryPicker();
                 folderPath.textContent = directoryHandle.name;
@@ -1052,7 +1068,7 @@
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     status.className = 'status error';
-                    status.textContent = '❌ 选择文件夹失败：' + error.message;
+                    status.textContent = '❌ 失败：' + error.message;
                 }
                 return;
             }
@@ -1070,17 +1086,42 @@
             const imgData = uploadedImages[i];
             const img = imgData.image;
             
+            // 确定裁剪区域
+            let sourceX = 0, sourceY = 0, sourceWidth = img.width, sourceHeight = img.height;
+            if (enableCropCheck.checked) {
+                sourceX = cropRect.x;
+                sourceY = cropRect.y;
+                sourceWidth = cropRect.width;
+                sourceHeight = cropRect.height;
+            }
+            
+            // 创建输出 canvas
             const canvas = document.createElement('canvas');
-            canvas.width = cropRect.width;
-            canvas.height = cropRect.height;
+            canvas.width = sourceWidth;
+            canvas.height = sourceHeight;
             const ctx = canvas.getContext('2d');
             
-            ctx.drawImage(img, cropRect.x, cropRect.y, cropRect.width, cropRect.height, 0, 0, cropRect.width, cropRect.height);
+            // 绘制裁剪后的图像
+            ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
             
-            if (enableMosaic()) {
-                const mosaicX = mosaicRect.x - cropRect.x;
-                const mosaicY = mosaicRect.y - cropRect.y;
-                applyMosaicEffect(ctx, mosaicX, mosaicY, mosaicRect.width, mosaicRect.height, 10);
+            // 应用马赛克
+            if (enableMosaicCheck.checked) {
+                let mosaicX = mosaicRect.x - sourceX;
+                let mosaicY = mosaicRect.y - sourceY;
+                let mosaicW = mosaicRect.width;
+                let mosaicH = mosaicRect.height;
+                
+                // 裁剪到可见区域
+                if (mosaicX + mosaicW > 0 && mosaicY + mosaicH > 0 && mosaicX < sourceWidth && mosaicY < sourceHeight) {
+                    mosaicX = Math.max(0, mosaicX);
+                    mosaicY = Math.max(0, mosaicY);
+                    mosaicW = Math.min(mosaicW, sourceWidth - mosaicX);
+                    mosaicH = Math.min(mosaicH, sourceHeight - mosaicY);
+                    
+                    if (mosaicW > 0 && mosaicH > 0) {
+                        applyMosaicEffect(ctx, mosaicX, mosaicY, mosaicW, mosaicH, 10);
+                    }
+                }
             }
             
             const base64Data = canvas.toDataURL('image/png').split(',')[1];
@@ -1113,12 +1154,11 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-
                 status.className = 'status success';
                 status.textContent = '✅ 处理完成！已下载 ' + uploadedImages.length + ' 张图片';
             } catch (error) {
                 status.className = 'status error';
-                status.textContent = '❌ 处理失败：' + error.message;
+                status.textContent = '❌ 失败：' + error.message;
             }
         }
     });
@@ -1146,7 +1186,6 @@
             status.textContent = '❌ 请使用 Chrome/Edge 浏览器';
             return;
         }
-
         try {
             directoryHandle = await window.showDirectoryPicker();
             folderPath.textContent = directoryHandle.name;
@@ -1163,23 +1202,13 @@
     });
 
     // 加载 JSZip
-    function loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
     if (typeof JSZip === 'undefined') {
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')
-            .catch(() => {
-                status.className = 'status error';
-                status.textContent = '❌ 无法加载压缩库';
-            });
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        document.head.appendChild(script);
     }
+    
+    updateModeUI();
 })();
     </script>
 </body>
