@@ -511,8 +511,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🖼️ 图片右下角马赛克工具</h1>
-        <p class="subtitle">批量处理 · 可调节大小和位置 · 本地处理无需上传</p>
+        <h1>🖼️ 图片裁剪与马赛克工具</h1>
+        <p class="subtitle">批量裁剪 3:4 比例 · 可选马赛克 · 本地处理无需上传</p>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
@@ -545,7 +545,52 @@
             </div>
         </div>
 
-        <div class="controls">
+        <!-- 功能选择 -->
+        <div class="controls" style="margin-bottom: 20px;">
+            <div class="control-group" style="flex-direction: row; align-items: center; gap: 20px;">
+                <label style="margin: 0;">🛠️ 处理模式：</label>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" id="enableCrop" checked>
+                        <span>裁剪 (3:4)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" id="enableMosaic" checked>
+                        <span>马赛克</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 裁剪设置 -->
+        <div class="controls" id="cropControls" style="background: #e8f5e9; border: 2px solid #4caf50;">
+            <div class="control-group">
+                <label>📐 裁剪区域宽度 (%)</label>
+                <input type="range" id="cropWidth" min="30" max="100" value="100">
+                <div class="control-value" id="cropWidthValue">100%</div>
+            </div>
+
+            <div class="control-group">
+                <label>📐 裁剪区域高度 (%)</label>
+                <input type="range" id="cropHeight" min="30" max="100" value="100">
+                <div class="control-value" id="cropHeightValue">100%</div>
+            </div>
+
+            <div class="control-group">
+                <label>⬅️ 裁剪起始 X (%)</label>
+                <input type="range" id="cropX" min="0" max="70" value="0">
+                <div class="control-value" id="cropXValue">0%</div>
+            </div>
+
+            <div class="control-group">
+                <label>⬆️ 裁剪起始 Y (%)</label>
+                <input type="range" id="cropY" min="0" max="70" value="0">
+                <div class="control-value" id="cropYValue">0%</div>
+            </div>
+        </div>
+
+        <!-- 马赛克设置 -->
+        <div class="controls" id="mosaicControls" style="background: #fff3e0; border: 2px solid #ff9800;">
             <div class="control-group">
                 <label>马赛克宽度 (%)</label>
                 <input type="range" id="mosaicWidth" min="5" max="50" value="20">
@@ -696,14 +741,59 @@
         const renameSeparator = document.getElementById('renameSeparator');
         const renamePreview = document.getElementById('renamePreview');
 
-        // 控制滑块
-        const controls = {
+        // 功能控制
+        const enableCrop = document.getElementById('enableCrop');
+        const enableMosaic = document.getElementById('enableMosaic');
+        const cropControls = document.getElementById('cropControls');
+        const mosaicControls = document.getElementById('mosaicControls');
+
+        // 裁剪控制滑块
+        const cropControlsElements = {
+            cropWidth: { slider: document.getElementById('cropWidth'), display: document.getElementById('cropWidthValue') },
+            cropHeight: { slider: document.getElementById('cropHeight'), display: document.getElementById('cropHeightValue') },
+            cropX: { slider: document.getElementById('cropX'), display: document.getElementById('cropXValue') },
+            cropY: { slider: document.getElementById('cropY'), display: document.getElementById('cropYValue') }
+        };
+
+        // 马赛克控制滑块
+        const mosaicControlsElements = {
             mosaicWidth: { slider: document.getElementById('mosaicWidth'), display: document.getElementById('widthValue') },
             mosaicHeight: { slider: document.getElementById('mosaicHeight'), display: document.getElementById('heightValue') },
             offsetX: { slider: document.getElementById('offsetX'), display: document.getElementById('offsetXValue') },
             offsetY: { slider: document.getElementById('offsetY'), display: document.getElementById('offsetYValue') },
             intensity: { slider: document.getElementById('intensity'), display: document.getElementById('intensityValue') }
         };
+
+        // 功能切换
+        function updateControlsVisibility() {
+            cropControls.style.display = enableCrop.checked ? 'grid' : 'none';
+            mosaicControls.style.display = enableMosaic.checked ? 'grid' : 'none';
+            updateLivePreview();
+        }
+
+        enableCrop.addEventListener('change', updateControlsVisibility);
+        enableMosaic.addEventListener('change', updateControlsVisibility);
+
+        // 更新裁剪控制值显示并刷新预览
+        Object.keys(cropControlsElements).forEach(key => {
+            cropControlsElements[key].slider.addEventListener('input', () => {
+                const value = cropControlsElements[key].slider.value;
+                cropControlsElements[key].display.textContent = value + '%';
+                updateLivePreview();
+            });
+        });
+
+        // 更新马赛克控制值显示并刷新预览
+        Object.keys(mosaicControlsElements).forEach(key => {
+            mosaicControlsElements[key].slider.addEventListener('input', () => {
+                const value = mosaicControlsElements[key].slider.value;
+                mosaicControlsElements[key].display.textContent = key.includes('offset') || key.includes('mosaic') ? value + '%' : value;
+                updateLivePreview();
+            });
+        });
+
+        // 初始化显示状态
+        updateControlsVisibility();
 
         // 更新控制值显示并刷新预览
         Object.keys(controls).forEach(key => {
@@ -815,47 +905,91 @@
             const canvas = previewCanvas;
             const ctx = canvas.getContext('2d');
 
-            const width = img.naturalWidth;
-            const height = img.naturalHeight;
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
 
+            // 先应用裁剪（如果启用）
+            let croppedImage = img;
+            if (enableCrop.checked) {
+                const cropWidthPercent = parseInt(cropControlsElements.cropWidth.slider.value) / 100;
+                const cropHeightPercent = parseInt(cropControlsElements.cropHeight.slider.value) / 100;
+                const cropXPercent = parseInt(cropControlsElements.cropX.slider.value) / 100;
+                const cropYPercent = parseInt(cropControlsElements.cropY.slider.value) / 100;
+
+                const cropWidth = Math.floor(width * cropWidthPercent);
+                const cropHeight = Math.floor(height * cropHeightPercent);
+                const cropX = Math.floor(width * cropXPercent);
+                const cropY = Math.floor(height * cropYPercent);
+
+                // 创建裁剪后的临时 canvas
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = cropWidth;
+                tempCanvas.height = cropHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                
+                // 更新显示尺寸为裁剪后的尺寸
+                width = cropWidth;
+                height = cropHeight;
+                croppedImage = tempCanvas;
+            }
+
+            // 设置画布尺寸
             canvas.width = width;
             canvas.height = height;
-            ctx.drawImage(img, 0, 0);
 
-            const mosaicWidthPercent = parseInt(controls.mosaicWidth.slider.value) / 100;
-            const mosaicHeightPercent = parseInt(controls.mosaicHeight.slider.value) / 100;
-            const offsetXPercent = parseInt(controls.offsetX.slider.value) / 100;
-            const offsetYPercent = parseInt(controls.offsetY.slider.value) / 100;
-            const intensity = parseInt(controls.intensity.slider.value);
+            // 绘制裁剪后的图像（或原图）
+            if (croppedImage instanceof HTMLCanvasElement) {
+                ctx.drawImage(croppedImage, 0, 0);
+            } else {
+                const cropWidthPercent = parseInt(cropControlsElements.cropWidth.slider.value) / 100;
+                const cropHeightPercent = parseInt(cropControlsElements.cropHeight.slider.value) / 100;
+                const cropXPercent = parseInt(cropControlsElements.cropX.slider.value) / 100;
+                const cropYPercent = parseInt(cropControlsElements.cropY.slider.value) / 100;
+                const cropWidth = Math.floor(width * cropWidthPercent);
+                const cropHeight = Math.floor(height * cropHeightPercent);
+                const cropX = Math.floor(width * cropXPercent);
+                const cropY = Math.floor(height * cropYPercent);
+                ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            }
 
-            const mosaicWidth = Math.floor(width * mosaicWidthPercent);
-            const mosaicHeight = Math.floor(height * mosaicHeightPercent);
-            const x = Math.floor(width - mosaicWidth - (width * offsetXPercent));
-            const y = Math.floor(height - mosaicHeight - (height * offsetYPercent));
+            // 应用马赛克（如果启用）
+            if (enableMosaic.checked) {
+                const mosaicWidthPercent = parseInt(mosaicControlsElements.mosaicWidth.slider.value) / 100;
+                const mosaicHeightPercent = parseInt(mosaicControlsElements.mosaicHeight.slider.value) / 100;
+                const offsetXPercent = parseInt(mosaicControlsElements.offsetX.slider.value) / 100;
+                const offsetYPercent = parseInt(mosaicControlsElements.offsetY.slider.value) / 100;
+                const intensity = parseInt(mosaicControlsElements.intensity.slider.value);
 
-            if (x >= 0 && y >= 0 && mosaicWidth > 0 && mosaicHeight > 0) {
-                const imageData = ctx.getImageData(x, y, mosaicWidth, mosaicHeight);
-                const data = imageData.data;
+                const mosaicWidth = Math.floor(width * mosaicWidthPercent);
+                const mosaicHeight = Math.floor(height * mosaicHeightPercent);
+                const x = Math.floor(width - mosaicWidth - (width * offsetXPercent));
+                const y = Math.floor(height - mosaicHeight - (height * offsetYPercent));
 
-                for (let py = 0; py < mosaicHeight; py += intensity) {
-                    for (let px = 0; px < mosaicWidth; px += intensity) {
-                        const idx = (py * mosaicWidth + px) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
+                if (x >= 0 && y >= 0 && mosaicWidth > 0 && mosaicHeight > 0) {
+                    const imageData = ctx.getImageData(x, y, mosaicWidth, mosaicHeight);
+                    const data = imageData.data;
 
-                        for (let dy = 0; dy < intensity && py + dy < mosaicHeight; dy++) {
-                            for (let dx = 0; dx < intensity && px + dx < mosaicWidth; dx++) {
-                                const didx = ((py + dy) * mosaicWidth + (px + dx)) * 4;
-                                data[didx] = r;
-                                data[didx + 1] = g;
-                                data[didx + 2] = b;
+                    for (let py = 0; py < mosaicHeight; py += intensity) {
+                        for (let px = 0; px < mosaicWidth; px += intensity) {
+                            const idx = (py * mosaicWidth + px) * 4;
+                            const r = data[idx];
+                            const g = data[idx + 1];
+                            const b = data[idx + 2];
+
+                            for (let dy = 0; dy < intensity && py + dy < mosaicHeight; dy++) {
+                                for (let dx = 0; dx < intensity && px + dx < mosaicWidth; dx++) {
+                                    const didx = ((py + dy) * mosaicWidth + (px + dx)) * 4;
+                                    data[didx] = r;
+                                    data[didx + 1] = g;
+                                    data[didx + 2] = b;
+                                }
                             }
                         }
                     }
-                }
 
-                ctx.putImageData(imageData, x, y);
+                    ctx.putImageData(imageData, x, y);
+                }
             }
         }
 
@@ -920,50 +1054,83 @@
             }
         };
 
-        // 应用马赛克效果
-        function applyMosaic(imgElement, canvas) {
+        // 应用裁剪和马赛克效果
+        function applyEffects(imgElement, canvas) {
             const ctx = canvas.getContext('2d');
-            const width = imgElement.naturalWidth;
-            const height = imgElement.naturalHeight;
+            let width = imgElement.naturalWidth;
+            let height = imgElement.naturalHeight;
 
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(imgElement, 0, 0);
+            // 第一步：应用裁剪（如果启用）
+            if (enableCrop.checked) {
+                const cropWidthPercent = parseInt(cropControlsElements.cropWidth.slider.value) / 100;
+                const cropHeightPercent = parseInt(cropControlsElements.cropHeight.slider.value) / 100;
+                const cropXPercent = parseInt(cropControlsElements.cropX.slider.value) / 100;
+                const cropYPercent = parseInt(cropControlsElements.cropY.slider.value) / 100;
 
-            const mosaicWidthPercent = parseInt(controls.mosaicWidth.slider.value) / 100;
-            const mosaicHeightPercent = parseInt(controls.mosaicHeight.slider.value) / 100;
-            const offsetXPercent = parseInt(controls.offsetX.slider.value) / 100;
-            const offsetYPercent = parseInt(controls.offsetY.slider.value) / 100;
-            const intensity = parseInt(controls.intensity.slider.value);
+                const cropWidth = Math.floor(width * cropWidthPercent);
+                const cropHeight = Math.floor(height * cropHeightPercent);
+                const cropX = Math.floor(width * cropXPercent);
+                const cropY = Math.floor(height * cropYPercent);
 
-            const mosaicWidth = Math.floor(width * mosaicWidthPercent);
-            const mosaicHeight = Math.floor(height * mosaicHeightPercent);
-            const x = Math.floor(width - mosaicWidth - (width * offsetXPercent));
-            const y = Math.floor(height - mosaicHeight - (height * offsetYPercent));
+                // 创建临时 canvas 进行裁剪
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = cropWidth;
+                tempCanvas.height = cropHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(imgElement, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
 
-            if (x >= 0 && y >= 0) {
-                const imageData = ctx.getImageData(x, y, mosaicWidth, mosaicHeight);
-                const data = imageData.data;
+                // 更新尺寸为裁剪后的尺寸
+                width = cropWidth;
+                height = cropHeight;
 
-                for (let py = 0; py < mosaicHeight; py += intensity) {
-                    for (let px = 0; px < mosaicWidth; px += intensity) {
-                        const idx = (py * mosaicWidth + px) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
+                // 将裁剪后的图像绘制到主 canvas
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(tempCanvas, 0, 0);
+            } else {
+                // 不裁剪，直接使用原图尺寸
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(imgElement, 0, 0);
+            }
 
-                        for (let dy = 0; dy < intensity && py + dy < mosaicHeight; dy++) {
-                            for (let dx = 0; dx < intensity && px + dx < mosaicWidth; dx++) {
-                                const didx = ((py + dy) * mosaicWidth + (px + dx)) * 4;
-                                data[didx] = r;
-                                data[didx + 1] = g;
-                                data[didx + 2] = b;
+            // 第二步：应用马赛克（如果启用）
+            if (enableMosaic.checked) {
+                const mosaicWidthPercent = parseInt(mosaicControlsElements.mosaicWidth.slider.value) / 100;
+                const mosaicHeightPercent = parseInt(mosaicControlsElements.mosaicHeight.slider.value) / 100;
+                const offsetXPercent = parseInt(mosaicControlsElements.offsetX.slider.value) / 100;
+                const offsetYPercent = parseInt(mosaicControlsElements.offsetY.slider.value) / 100;
+                const intensity = parseInt(mosaicControlsElements.intensity.slider.value);
+
+                const mosaicWidth = Math.floor(width * mosaicWidthPercent);
+                const mosaicHeight = Math.floor(height * mosaicHeightPercent);
+                const x = Math.floor(width - mosaicWidth - (width * offsetXPercent));
+                const y = Math.floor(height - mosaicHeight - (height * offsetYPercent));
+
+                if (x >= 0 && y >= 0 && mosaicWidth > 0 && mosaicHeight > 0) {
+                    const imageData = ctx.getImageData(x, y, mosaicWidth, mosaicHeight);
+                    const data = imageData.data;
+
+                    for (let py = 0; py < mosaicHeight; py += intensity) {
+                        for (let px = 0; px < mosaicWidth; px += intensity) {
+                            const idx = (py * mosaicWidth + px) * 4;
+                            const r = data[idx];
+                            const g = data[idx + 1];
+                            const b = data[idx + 2];
+
+                            for (let dy = 0; dy < intensity && py + dy < mosaicHeight; dy++) {
+                                for (let dx = 0; dx < intensity && px + dx < mosaicWidth; dx++) {
+                                    const didx = ((py + dy) * mosaicWidth + (px + dx)) * 4;
+                                    data[didx] = r;
+                                    data[didx + 1] = g;
+                                    data[didx + 2] = b;
+                                }
                             }
                         }
                     }
-                }
 
-                ctx.putImageData(imageData, x, y);
+                    ctx.putImageData(imageData, x, y);
+                }
             }
 
             return canvas.toDataURL('image/png');
@@ -1069,7 +1236,7 @@
                 await new Promise((resolve) => {
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const result = applyMosaic(img, canvas);
+                        const result = applyEffects(img, canvas);
                         
                         const base64Data = result.split(',')[1];
                         
