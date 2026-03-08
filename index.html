@@ -562,12 +562,34 @@
             </div>
             
             <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #667eea;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; font-size: 14px;">
+                            💾 输出格式
+                        </label>
+                        <select id="outputFormat" 
+                            style="width: 100%; padding: 10px 12px; border: 2px solid #667eea; border-radius: 6px; font-size: 14px; background: white;">
+                            <option value="jpeg" selected>JPG（有损压缩，文件小）</option>
+                            <option value="png">PNG（无损，文件大）</option>
+                        </select>
+                    </div>
+                    
+                    <div id="qualityOption">
+                        <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; font-size: 14px;">
+                            📊 图片质量：<span id="qualityValue" style="color: #667eea; font-weight: 600;">90%</span>
+                        </label>
+                        <input type="range" id="quality" min="10" max="100" value="90" 
+                            style="width: 100%; height: 8px; border-radius: 4px; background: #ddd; outline: none; -webkit-appearance: none;">
+                        <div style="font-size: 12px; color: #666; margin-top: 4px;">建议 80-95%，平衡文件大小和质量</div>
+                    </div>
+                </div>
+                
                 <div class="output-option-item" style="background: #f0f2ff;">
                     <input type="checkbox" id="enableRename">
                     <label for="enableRename" style="flex: 1;">
                         <strong>📝 启用批量重命名</strong>
                         <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
-                            格式：前缀 + 分隔符 + 序号（例：图片_01.png）
+                            格式：前缀 + 分隔符 + 序号（例：图片_01.jpg）
                         </div>
                     </label>
                 </div>
@@ -695,6 +717,23 @@
     const renamePreview = document.getElementById('renamePreview');
     const renamePreview2 = document.getElementById('renamePreview2');
     const renamePreview3 = document.getElementById('renamePreview3');
+    
+    // 输出格式相关
+    const outputFormat = document.getElementById('outputFormat');
+    const quality = document.getElementById('quality');
+    const qualityValue = document.getElementById('qualityValue');
+    const qualityOption = document.getElementById('qualityOption');
+    
+    // 格式切换时更新质量和文件扩展名预览
+    outputFormat.addEventListener('change', function() {
+        const isJpeg = outputFormat.value === 'jpeg';
+        qualityOption.style.display = isJpeg ? 'block' : 'none';
+        updateRenamePreview();
+    });
+    
+    quality.addEventListener('input', function() {
+        qualityValue.textContent = quality.value + '%';
+    });
 
     const editCtx = editCanvas.getContext('2d');
     const previewCtx = previewCanvas.getContext('2d');
@@ -730,15 +769,16 @@
         const separator = renameSeparator.value;
         const digits = parseInt(renameDigits.value);
         const start = parseInt(renameStart.value) || 1;
+        const ext = outputFormat.value === 'jpeg' ? 'jpg' : 'png';
         
         const num1 = String(start).padStart(digits, '0');
         const num2 = String(start + 1).padStart(digits, '0');
         const num3 = String(start + 2).padStart(digits, '0');
         
         // 格式：前缀 + 分隔符 + 批次序号（递增）
-        renamePreview.textContent = `${prefix}${separator}${num1}.png`;
-        renamePreview2.textContent = `${prefix}${separator}${num2}.png`;
-        renamePreview3.textContent = `${prefix}${separator}${num3}.png`;
+        renamePreview.textContent = `${prefix}${separator}${num1}.${ext}`;
+        renamePreview2.textContent = `${prefix}${separator}${num2}.${ext}`;
+        renamePreview3.textContent = `${prefix}${separator}${num3}.${ext}`;
     }
     
     function generateRenameName(imgIndex, totalImages) {
@@ -746,12 +786,13 @@
         const separator = renameSeparator.value;
         const digits = parseInt(renameDigits.value);
         const start = parseInt(renameStart.value) || 1;
+        const ext = outputFormat.value === 'jpeg' ? 'jpg' : 'png';
         
         // 批次序号：从起始序号开始递增（每张图 +1）
         const batchNum = String(start + imgIndex).padStart(digits, '0');
         
         // 格式：前缀 + 分隔符 + 批次序号
-        return `${prefix}${separator}${batchNum}.png`;
+        return `${prefix}${separator}${batchNum}.${ext}`;
     }
 
     function updateModeUI() {
@@ -1250,19 +1291,20 @@
                 }
             }
             
-            const base64Data = canvas.toDataURL('image/png').split(',')[1];
-            
             // 生成文件名
             let filename;
             if (enableRename.checked) {
-                // 使用重命名规则：前缀 + 图片序号 + 分隔符 + 批次序号
                 filename = generateRenameName(i, uploadedImages.length);
             } else {
-                // 保持原文件名
                 const originalName = imgData.file.name;
                 const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
-                filename = nameWithoutExt + '.png';
+                filename = nameWithoutExt + '.' + (outputFormat.value === 'jpeg' ? 'jpg' : 'png');
             }
+            
+            // 根据选择的格式导出图片
+            const format = outputFormat.value === 'jpeg' ? 'image/jpeg' : 'image/png';
+            const qualityParam = outputFormat.value === 'jpeg' ? parseInt(quality.value) / 100 : undefined;
+            const base64Data = canvas.toDataURL(format, qualityParam).split(',')[1];
             
             if (useFolder) {
                 const success = await saveToDirectory(directoryHandle, filename, base64Data);
