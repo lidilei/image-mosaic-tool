@@ -567,7 +567,7 @@
                     <label for="enableRename" style="flex: 1;">
                         <strong>📝 启用批量重命名</strong>
                         <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
-                            格式：前缀 + 序号（例：图片 01_01.png）
+                            格式：前缀 + 分隔符 + 序号（例：图片_01.png）
                         </div>
                     </label>
                 </div>
@@ -575,14 +575,13 @@
                 <div id="renameOptions" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; font-weight: 600; color: #333; margin-bottom: 8px; font-size: 14px;">
-                            📌 命名格式：前缀 + 图片序号 + 分隔符 + 批次序号
+                            📌 命名格式：前缀 + 分隔符 + 批次序号
                         </label>
                         <div style="font-size: 13px; color: #666;">
-                            例如：<code style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">前缀</code> + 
-                            <code style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">01</code> + 
+                            例如：<code style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">图片</code> + 
                             <code style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">_</code> + 
                             <code style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">01</code> = 
-                            <strong style="color: #667eea;">前缀 01_01.png</strong>
+                            <strong style="color: #667eea;">图片_01.png</strong>
                         </div>
                     </div>
                     
@@ -736,10 +735,10 @@
         const num2 = String(start + 1).padStart(digits, '0');
         const num3 = String(start + 2).padStart(digits, '0');
         
-        // 格式：前缀 + 图片序号 + 分隔符 + 批次序号
-        renamePreview.textContent = `${prefix}${num1}${separator}${num1}.png`;
-        renamePreview2.textContent = `${prefix}${num2}${separator}${num1}.png`;
-        renamePreview3.textContent = `${prefix}${num3}${separator}${num1}.png`;
+        // 格式：前缀 + 分隔符 + 批次序号（递增）
+        renamePreview.textContent = `${prefix}${separator}${num1}.png`;
+        renamePreview2.textContent = `${prefix}${separator}${num2}.png`;
+        renamePreview3.textContent = `${prefix}${separator}${num3}.png`;
     }
     
     function generateRenameName(imgIndex, totalImages) {
@@ -748,13 +747,11 @@
         const digits = parseInt(renameDigits.value);
         const start = parseInt(renameStart.value) || 1;
         
-        // 图片序号：从起始序号开始递增
-        const imgNum = String(start + imgIndex).padStart(digits, '0');
-        // 批次序号：固定为起始序号
-        const batchNum = String(start).padStart(digits, '0');
+        // 批次序号：从起始序号开始递增（每张图 +1）
+        const batchNum = String(start + imgIndex).padStart(digits, '0');
         
-        // 格式：前缀 + 图片序号 + 分隔符 + 批次序号
-        return `${prefix}${imgNum}${separator}${batchNum}.png`;
+        // 格式：前缀 + 分隔符 + 批次序号
+        return `${prefix}${separator}${batchNum}.png`;
     }
 
     function updateModeUI() {
