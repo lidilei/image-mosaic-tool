@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试测试</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .btn { padding: 20px 40px; font-size: 18px; cursor: pointer; background: #667eea; color: white; border: none; border-radius: 8px; }
+        #log { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; min-height: 100px; }
+    </style>
+</head>
+<body>
+    <h1>上传功能调试</h1>
+    <div class="upload-area" id="uploadArea" style="border: 3px dashed #667eea; padding: 40px; text-align: center; margin: 20px 0;">
+        <div>点击或拖拽图片到此处上传</div>
+        <input type="file" id="fileInput" accept="image/*" multiple>
+    </div>
+    <button class="btn" id="testBtn">测试按钮</button>
+    <div id="log">等待操作...</div>
+
+    <script>
+        function log(msg) {
+            const logEl = document.getElementById('log');
+            logEl.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + msg + '</div>';
+            console.log(msg);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            log('DOMContentLoaded 触发');
+            
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const testBtn = document.getElementById('testBtn');
+            
+            log('uploadArea: ' + (uploadArea ? '找到' : '未找到'));
+            log('fileInput: ' + (fileInput ? '找到' : '未找到'));
+            log('testBtn: ' + (testBtn ? '找到' : '未找到'));
+            
+            if (uploadArea) {
+                uploadArea.addEventListener('click', function() {
+                    log('uploadArea 被点击');
+                    if (fileInput) {
+                        log('触发 fileInput.click()');
+                        fileInput.click();
+                    }
+                });
+                log('uploadArea click 事件已绑定');
+            }
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    log('fileInput change 触发，文件数：' + e.target.files.length);
+                });
+                log('fileInput change 事件已绑定');
+            }
+            
+            if (testBtn) {
+                testBtn.addEventListener('click', function() {
+                    log('测试按钮被点击');
+                });
+                log('testBtn click 事件已绑定');
+            }
+            
+            log('初始化完成');
+        });
+    </script>
+</body>
+</html>
