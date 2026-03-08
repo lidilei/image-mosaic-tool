@@ -890,7 +890,7 @@
                             id: Date.now() + Math.random()
                         });
                         updatePreview();
-                        updateLivePreview();
+                        // 注意：不在这里调用 updateLivePreview()，而是等待 originalImage 的 load 事件触发
                     };
                     reader.readAsDataURL(file);
                 }
