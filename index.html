@@ -711,6 +711,9 @@
     </div>
 
     <script>
+        // 等待 DOM 完全加载后再执行
+        document.addEventListener('DOMContentLoaded', function() {
+        
         let uploadedImages = [];
         let directoryHandle = null;
         let previewImageLoaded = false;
@@ -1326,6 +1329,8 @@
                     status.textContent = '❌ 无法加载压缩库，请检查网络连接';
                 });
         }
+        
+        }); // DOMContentLoaded 结束
     </script>
 </body>
 </html>
