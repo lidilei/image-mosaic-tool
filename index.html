@@ -560,6 +560,59 @@
             <div class="folder-status" id="folderStatus">
                 ✅ 输出文件夹：<strong id="folderPath"></strong>
             </div>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #667eea;">
+                <div class="output-option-item" style="background: #f0f2ff;">
+                    <input type="checkbox" id="enableRename">
+                    <label for="enableRename" style="flex: 1;">
+                        <strong>📝 启用批量重命名</strong>
+                        <div style="font-weight: normal; font-size: 13px; color: #666; margin-top: 4px;">
+                            格式：前缀 + 图片序号 + 分隔符 + 批次序号（例：图片 01_01.png）
+                        </div>
+                    </label>
+                </div>
+                
+                <div id="renameOptions" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 6px; font-size: 13px;">前缀</label>
+                            <input type="text" id="renamePrefix" value="图片" placeholder="输入前缀" 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 6px; font-size: 13px;">分隔符</label>
+                            <select id="renameSeparator" 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white;">
+                                <option value="_">下划线 (_)</option>
+                                <option value="-">中划线 (-)</option>
+                                <option value="">无</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 6px; font-size: 13px;">序号位数</label>
+                            <select id="renameDigits" 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white;">
+                                <option value="2">2 位 (01, 02...)</option>
+                                <option value="3">3 位 (001, 002...)</option>
+                                <option value="4">4 位 (0001, 0002...)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 6px; font-size: 13px;">起始序号</label>
+                            <input type="number" id="renameStart" value="1" min="1" 
+                                style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        </div>
+                    </div>
+                    
+                    <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; font-size: 13px; color: #1565c0;">
+                        <strong>预览：</strong><span id="renamePreview" style="color: #667eea; font-weight: 600;">图片 01_01.png</span>, 
+                        <span id="renamePreview2" style="color: #667eea; font-weight: 600;">图片 02_01.png</span>...
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="action-buttons" style="margin-top: 25px;">
@@ -613,6 +666,16 @@
     
     const enableCropCheck = document.getElementById('enableCropCheck');
     const enableMosaicCheck = document.getElementById('enableMosaicCheck');
+    
+    // 重命名相关
+    const enableRename = document.getElementById('enableRename');
+    const renameOptions = document.getElementById('renameOptions');
+    const renamePrefix = document.getElementById('renamePrefix');
+    const renameSeparator = document.getElementById('renameSeparator');
+    const renameDigits = document.getElementById('renameDigits');
+    const renameStart = document.getElementById('renameStart');
+    const renamePreview = document.getElementById('renamePreview');
+    const renamePreview2 = document.getElementById('renamePreview2');
 
     const editCtx = editCanvas.getContext('2d');
     const previewCtx = previewCanvas.getContext('2d');
@@ -629,6 +692,44 @@
         redrawEditCanvas();
         updatePreview();
     });
+    
+    // 重命名功能：显示/隐藏选项
+    enableRename.addEventListener('change', function() {
+        renameOptions.style.display = enableRename.checked ? 'block' : 'none';
+        if (enableRename.checked) {
+            updateRenamePreview();
+        }
+    });
+    
+    // 重命名选项变化时更新预览
+    [renamePrefix, renameSeparator, renameDigits, renameStart].forEach(el => {
+        el.addEventListener('input', updateRenamePreview);
+    });
+    
+    function updateRenamePreview() {
+        const prefix = renamePrefix.value || '图片';
+        const separator = renameSeparator.value;
+        const digits = parseInt(renameDigits.value);
+        const start = parseInt(renameStart.value) || 1;
+        
+        const num1 = String(start).padStart(digits, '0');
+        const num2 = String(start + 1).padStart(digits, '0');
+        
+        renamePreview.textContent = `${prefix}${num1}${separator}${num1}.png`;
+        renamePreview2.textContent = `${prefix}${num2}${separator}${num1}.png`;
+    }
+    
+    function generateRenameName(imgIndex, totalImages) {
+        const prefix = renamePrefix.value || '图片';
+        const separator = renameSeparator.value;
+        const digits = parseInt(renameDigits.value);
+        const start = parseInt(renameStart.value) || 1;
+        
+        const imgNum = String(start + imgIndex).padStart(digits, '0');
+        const batchNum = String(start).padStart(digits, '0');
+        
+        return `${prefix}${imgNum}${separator}${batchNum}.png`;
+    }
 
     function updateModeUI() {
         enableCropCheck.parentElement.classList.toggle('active', enableCropCheck.checked);
@@ -1125,9 +1226,18 @@
             }
             
             const base64Data = canvas.toDataURL('image/png').split(',')[1];
-            const originalName = imgData.file.name;
-            const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
-            const filename = nameWithoutExt + '.png';
+            
+            // 生成文件名
+            let filename;
+            if (enableRename.checked) {
+                // 使用重命名规则：前缀 + 图片序号 + 分隔符 + 批次序号
+                filename = generateRenameName(i, uploadedImages.length);
+            } else {
+                // 保持原文件名
+                const originalName = imgData.file.name;
+                const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
+                filename = nameWithoutExt + '.png';
+            }
             
             if (useFolder) {
                 const success = await saveToDirectory(directoryHandle, filename, base64Data);
